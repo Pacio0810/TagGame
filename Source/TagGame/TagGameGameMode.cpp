@@ -8,6 +8,7 @@
 
 ATagGameGameMode::ATagGameGameMode()
 {
+	PrimaryActorTick.bCanEverTick = true;
 	// set default pawn class to our Blueprinted character
 	static ConstructorHelpers::FClassFinder<APawn> PlayerPawnBPClass(TEXT("/Game/ThirdPerson/Blueprints/BP_ThirdPersonCharacter"));
 	if (PlayerPawnBPClass.Class != NULL)
@@ -36,6 +37,10 @@ void ATagGameGameMode::ResetMatch()
 
 	for (TActorIterator<ABall> It(GetWorld()); It; ++It)
 	{
+		if (It->GetAttachParentActor())
+		{
+			It->AttachToActor(nullptr, FAttachmentTransformRules::KeepWorldTransform);
+		}
 		GameBallArray.Add(*It);
 	}
 
@@ -52,4 +57,18 @@ void ATagGameGameMode::ResetMatch()
 const TArray<ABall*>& ATagGameGameMode::GetBalls() const
 {
 	return GameBallArray;
+}
+
+void ATagGameGameMode::Tick(const float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	for (int32 i = 0; i < GameBallArray.Num(); i++)
+	{
+		if (GameBallArray[i]->GetAttachParentActor() != GetWorld()->GetFirstPlayerController()->GetPawn())
+		{
+			return;
+		}
+	}
+	ResetMatch();
 }

@@ -16,13 +16,15 @@ class ATagGameGameMode : public AGameModeBase
 public:
 	ATagGameGameMode();
 	void BeginPlay() override;
-	void ResetMatch();
-	const TArray<ABall*>& GetBalls() const;
+	void Tick(const float DeltaTime) override;
 
 protected:
 	TArray<ATargetPoint*> TargetPointArray;
 	TArray<ABall*> GameBallArray;
+	void ResetMatch();
 
+public:
+	const TArray<ABall*>& GetBalls() const;
 };
 
 
