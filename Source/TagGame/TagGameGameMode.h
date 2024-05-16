@@ -2,7 +2,9 @@
 
 #pragma once
 
+#include "Ball.h"
 #include "CoreMinimal.h"
+#include "Engine/TargetPoint.h"
 #include "GameFramework/GameModeBase.h"
 #include "TagGameGameMode.generated.h"
 
@@ -13,6 +15,13 @@ class ATagGameGameMode : public AGameModeBase
 
 public:
 	ATagGameGameMode();
+	void BeginPlay() override;
+	void ResetMatch();
+
+protected:
+	TArray<ATargetPoint*> TargetPointArray;
+	TArray<ABall*> GameBallArray;
+
 };
 
 
