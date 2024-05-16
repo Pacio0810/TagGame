@@ -17,6 +17,7 @@ public:
 	ATagGameGameMode();
 	void BeginPlay() override;
 	void ResetMatch();
+	const TArray<ABall*>& GetBalls() const;
 
 protected:
 	TArray<ATargetPoint*> TargetPointArray;

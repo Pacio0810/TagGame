@@ -48,3 +48,8 @@ void ATagGameGameMode::ResetMatch()
 		RandomTargetPoints.RemoveAt(RandomIndex);
 	}
 }
+
+const TArray<ABall*>& ATagGameGameMode::GetBalls() const
+{
+	return GameBallArray;
+}
