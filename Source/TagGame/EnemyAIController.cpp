@@ -45,8 +45,13 @@ void AEnemyAIController::BeginPlay()
 				BestBall->SetActorRelativeLocation(FVector(0, 0, 0));
 				BlackboardComponent->SetValueAsObject("TargetBall", nullptr);
 			}
+			
+			if (State == EPathFollowingStatus::Idle)
+			{
+				return SearchForCoverPoint;
+			}
 
-			return SearchForCoverPoint;
+			return nullptr;
 		}
 	);
 
@@ -200,6 +205,7 @@ void AEnemyAIController::BeginPlay()
 				BlackboardComponent->SetValueAsObject("TargetCover", nullptr);
 				return SearchForCoverPoint;
 			}
+
 			Cast<ATargetPoint>(BlackboardComponent->GetValueAsObject("TargetCover"))->AttachToActor(GetPawn(), FAttachmentTransformRules::KeepWorldTransform);
 
 			return GoToShootDistance;
@@ -208,7 +214,7 @@ void AEnemyAIController::BeginPlay()
 
 	GoToShootDistance = MakeShared<FAivState>(
 		[this]() {
-
+			Cast<ATargetPoint>(BlackboardComponent->GetValueAsObject("TargetCover"))->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
 			AActor* Player = Cast<AActor>(BlackboardComponent->GetValueAsObject("Target"));
 			MoveToActor(Player, ShootDistance);
 		},
@@ -224,7 +230,19 @@ void AEnemyAIController::BeginPlay()
 				return nullptr;
 			}
 
-			float ActualDistance = FVector::Distance(GetPawn()->GetActorLocation(), GetWorld()->GetFirstPlayerController()->GetPawn()->GetActorLocation());
+			return ShootToPlayer;
+
+		});
+
+	ShootToPlayer = MakeShared<FAivState>(
+		[this]() {
+			
+		},
+		nullptr,
+		[this](const float DeltaTime) -> TSharedPtr<FAivState> {
+			
+			float ActualDistance = FVector::Distance(GetPawn()->GetActorLocation(), 
+													 GetWorld()->GetFirstPlayerController()->GetPawn()->GetActorLocation());
 
 			if (ActualDistance > ShootDistance)
 			{
@@ -232,9 +250,21 @@ void AEnemyAIController::BeginPlay()
 				return GoToShootDistance;
 			}
 
-			return ShootToPlayer;
+			AActor* Bullet = SpawnBullet();
+			UStaticMeshComponent* BulletMesh = Bullet->GetComponentByClass<UStaticMeshComponent>();
 
-		});
+			FVector Force = GetPawn()->GetActorForwardVector() * BulletSpeed;
+
+			if (BulletMesh)
+			{
+				BulletMesh->SetSimulatePhysics(true);
+				BulletMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+				BulletMesh->AddImpulse(Force, NAME_None, true);
+			}
+
+			return GoToCover;
+		}
+	);
 
 	CurrentState = SearchForBall;
 	CurrentState->CallEnter();
@@ -256,3 +286,20 @@ void AEnemyAIController::OnPossess(APawn* InPawn)
 
 	BlackboardComponent->InitializeBlackboard(*BlackboardAsset);
 }
+
+AActor* AEnemyAIController::SpawnBullet()
+{
+	UBlueprint* BulletToSpawn = LoadObject<UBlueprint>(nullptr, TEXT("/Game/BP_Ball.BP_Ball"));
+
+	UClass* BulletClass = BulletToSpawn->GeneratedClass;
+
+	FVector SpawnPoint = GetPawn()->GetActorLocation() + (GetPawn()->GetActorForwardVector() + 50.0f);
+	if (BulletClass->IsChildOf<AActor>())
+	{
+		return GetWorld()->SpawnActor<AActor>(BulletClass, SpawnPoint, FRotator::ZeroRotator);
+	}
+
+		
+	return nullptr;
+}
+

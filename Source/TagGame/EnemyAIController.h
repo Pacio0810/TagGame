@@ -101,6 +101,12 @@ protected:
 
 	void OnPossess(APawn* InPawn) override;
 
+	UFUNCTION(BlueprintCallable, Category = "Spawn")
+	AActor* SpawnBullet();
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float ShootDistance = 400.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float BulletSpeed = 1200.0f;
 };
