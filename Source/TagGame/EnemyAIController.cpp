@@ -28,6 +28,7 @@ void AEnemyAIController::BeginPlay()
 				BestBall->SetActorRelativeLocation(FVector(0, 0, 0));
 				BestBall = nullptr;
 			}
+
 			return SearchForBall;
 		}
 	);
@@ -53,15 +54,18 @@ void AEnemyAIController::BeginPlay()
 
 			BestBall = NearestBall;
 		},
-		nullptr,
+		[this](AAIController* AIController)
+		{
+			CurrentState->CallEnter(this);
+		},
 		[this](AAIController* AIController, const float DeltaTime) -> TSharedPtr<FAivState> {
 			if (BestBall)
 			{
 				return GoToBall;
 			}
-			else {
-				return SearchForBall;
-			}
+			CurrentState->CallExit(this);
+			return SearchForBall;
+			
 		}
 	);
 
@@ -76,6 +80,10 @@ void AEnemyAIController::BeginPlay()
 			if (State == EPathFollowingStatus::Moving)
 			{
 				return nullptr;
+			}
+			if (BestBall->GetAttachParentActor())
+			{
+				return SearchForBall;
 			}
 			return GrabBall;
 		}
@@ -99,6 +107,11 @@ void AEnemyAIController::BeginPlay()
 
 			BestBall->AttachToActor(AIController->GetPawn(), FAttachmentTransformRules::KeepRelativeTransform);
 			BestBall->SetActorRelativeLocation(FVector(0, 0, 0));
+
+			if (BestBall->GetAttachParentActor() != this->GetPawn())
+			{
+				return SearchForBall;
+			}
 
 			return GoToPlayer;
 		}

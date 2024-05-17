@@ -39,7 +39,7 @@ void ATagGameGameMode::ResetMatch()
 	{
 		if (It->GetAttachParentActor())
 		{
-			It->AttachToActor(nullptr, FAttachmentTransformRules::KeepWorldTransform);
+			It->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
 		}
 		GameBallArray.Add(*It);
 	}
@@ -70,5 +70,6 @@ void ATagGameGameMode::Tick(const float DeltaTime)
 			return;
 		}
 	}
+
 	ResetMatch();
 }
