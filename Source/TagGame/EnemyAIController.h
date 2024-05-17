@@ -11,9 +11,9 @@
 struct FAivState : public TSharedFromThis<FAivState>
 {
 private:
-	TFunction<void(AAIController*)> Enter;
-	TFunction<void(AAIController*)> Exit;
-	TFunction<TSharedPtr<FAivState>(AAIController*, const float)> Tick;
+	TFunction<void()> Enter;
+	TFunction<void()> Exit;
+	TFunction<TSharedPtr<FAivState>(const float)> Tick;
 public:
 
 	FAivState()
@@ -23,7 +23,7 @@ public:
 		Tick = nullptr;
 	}
 
-	FAivState(TFunction<void(AAIController*)> InEnter = nullptr, TFunction<void(AAIController*)> InExit = nullptr, TFunction<TSharedPtr<FAivState>(AAIController*, const float)> InTick = nullptr)
+	FAivState(TFunction<void()> InEnter = nullptr, TFunction<void()> InExit = nullptr, TFunction<TSharedPtr<FAivState>(const float)> InTick = nullptr)
 	{
 		Enter = InEnter;
 		Exit = InExit;
@@ -35,32 +35,32 @@ public:
 	FAivState(FAivState&& Other) = delete;
 	FAivState& operator=(FAivState&& Other) = delete;
 
-	void CallEnter(AAIController* AIController)
+	void CallEnter()
 	{
 		if (Enter)
 		{
-			Enter(AIController);
+			Enter();
 		}
 	}
 
-	void CallExit(AAIController* AIController)
+	void CallExit()
 	{
 		if (Exit)
 		{
-			Exit(AIController);
+			Exit();
 		}
 	}
 
-	TSharedPtr<FAivState> CallTick(AAIController* AIController, const float DeltaTime)
+	TSharedPtr<FAivState> CallTick(const float DeltaTime)
 	{
 		if (Tick)
 		{
-			TSharedPtr<FAivState> NewState = Tick(AIController, DeltaTime);
+			TSharedPtr<FAivState> NewState = Tick(DeltaTime);
 
 			if (NewState != nullptr && NewState != AsShared())
 			{
-				CallExit(AIController);
-				NewState->CallEnter(AIController);
+				CallExit();
+				NewState->CallEnter();
 				return NewState;
 			}
 		}
@@ -89,7 +89,7 @@ protected:
 	void BeginPlay() override;
 	void Tick(float DeltaTime) override;
 
-	ABall* BestBall;
+	//ABall* BestBall;
 
 	UBlackboardComponent* BlackboardComponent;
 	UBlackboardData* BlackboardAsset;
