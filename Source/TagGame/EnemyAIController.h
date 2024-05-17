@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "AIController.h"
 #include "Ball.h"
+#include "BehaviorTree/BlackboardComponent.h"
 #include "EnemyAIController.generated.h"
 
 struct FAivState : public TSharedFromThis<FAivState>
@@ -75,6 +76,8 @@ UCLASS()
 class TAGGAME_API AEnemyAIController : public AAIController
 {
 	GENERATED_BODY()
+public:
+	AEnemyAIController();
 
 protected:
 	TSharedPtr<FAivState> CurrentState;
@@ -87,4 +90,9 @@ protected:
 	void Tick(float DeltaTime) override;
 
 	ABall* BestBall;
+
+	UBlackboardComponent* BlackboardComponent;
+	UBlackboardData* BlackboardAsset;
+
+	void OnPossess(APawn* InPawn) override;
 };

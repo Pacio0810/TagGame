@@ -3,15 +3,28 @@
 
 #include "EnemyAIController.h"
 #include "Navigation/PathFollowingComponent.h"
+#include "BehaviorTree/Blackboard/BlackboardKeyType_Object.h"
 #include "TagGameGameMode.h"
+
+AEnemyAIController::AEnemyAIController()
+{
+	BlackboardAsset = NewObject<UBlackboardData>();
+	BlackboardAsset->UpdatePersistentKey<UBlackboardKeyType_Object>(FName("Target"));
+
+	BlackboardComponent = CreateDefaultSubobject<UBlackboardComponent>(TEXT("BlackboardComponent"));
+}
 
 void AEnemyAIController::BeginPlay()
 {
 	Super::BeginPlay();
 
+	BlackboardComponent->SetValueAsObject("Target", this->GetWorld()->GetFirstPlayerController()->GetPawn());
+
 	GoToPlayer = MakeShared<FAivState>(
-		[](AAIController* AIController) {
-			AIController->MoveToActor(AIController->GetWorld()->GetFirstPlayerController()->GetPawn(), 100.0f);
+		[this](AAIController* AIController) {
+
+			AActor* Player = Cast<AActor>(BlackboardComponent->GetValueAsObject("Target"));
+			AIController->MoveToActor(Player, 50.0f);
 		},
 		nullptr,
 		[this](AAIController* AIController, const float DeltaTime) -> TSharedPtr<FAivState> {
@@ -34,25 +47,29 @@ void AEnemyAIController::BeginPlay()
 	);
 
 	SearchForBall = MakeShared<FAivState>(
-		[this](AAIController* AIController) {
+		[this](AAIController* AIController) 
+		{
+
 			AGameModeBase* GameMode = AIController->GetWorld()->GetAuthGameMode();
-			ATagGameGameMode* AIGameMode = Cast<ATagGameGameMode>(GameMode);
+			const ATagGameGameMode* AIGameMode = Cast<ATagGameGameMode>(GameMode);
+
 			const TArray<ABall*>& BallsList = AIGameMode->GetBalls();
 
-			ABall* NearestBall = nullptr;
+			float MaxDistance = INT_MAX;
 
-			for (int32 i = 0; i < BallsList.Num(); i++)
+			for (ABall* Ball : BallsList)
 			{
-				if (!BallsList[i]->GetAttachParentActor() &&
-					(!NearestBall ||
-						FVector::Distance(AIController->GetPawn()->GetActorLocation(), BallsList[i]->GetActorLocation()) <
-						FVector::Distance(AIController->GetPawn()->GetActorLocation(), NearestBall->GetActorLocation())))
+				if (!Ball->GetAttachParentActor())
 				{
-					NearestBall = BallsList[i];
+					const float Distance = FVector::Distance(AIController->GetPawn()->GetActorLocation(), Ball->GetActorLocation());
+
+					if (Distance < MaxDistance)
+					{
+						BestBall = Ball;
+						MaxDistance = Distance;
+					}
 				}
 			}
-
-			BestBall = NearestBall;
 		},
 		[this](AAIController* AIController)
 		{
@@ -71,7 +88,7 @@ void AEnemyAIController::BeginPlay()
 
 	GoToBall = MakeShared<FAivState>(
 		[this](AAIController* AIController) {
-			AIController->MoveToActor(BestBall, 100.0f);
+			AIController->MoveToActor(BestBall, 50.0f);
 		},
 		nullptr,
 		[this](AAIController* AIController, const float DeltaTime) -> TSharedPtr<FAivState> {
@@ -129,4 +146,11 @@ void AEnemyAIController::Tick(float DeltaTime)
 	{
 		CurrentState = CurrentState->CallTick(this, DeltaTime);
 	}
+}
+
+void AEnemyAIController::OnPossess(APawn* InPawn)
+{
+	Super::OnPossess(InPawn);
+
+	BlackboardComponent->InitializeBlackboard(*BlackboardAsset);
 }
