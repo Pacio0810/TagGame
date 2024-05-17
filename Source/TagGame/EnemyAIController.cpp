@@ -4,6 +4,7 @@
 #include "EnemyAIController.h"
 #include "Navigation/PathFollowingComponent.h"
 #include "BehaviorTree/Blackboard/BlackboardKeyType_Object.h"
+#include "Kismet/KismetSystemLibrary.h"
 #include "TagGameGameMode.h"
 
 AEnemyAIController::AEnemyAIController()
@@ -11,6 +12,7 @@ AEnemyAIController::AEnemyAIController()
 	BlackboardAsset = NewObject<UBlackboardData>();
 	BlackboardAsset->UpdatePersistentKey<UBlackboardKeyType_Object>(FName("Target"));
 	BlackboardAsset->UpdatePersistentKey<UBlackboardKeyType_Object>(FName("TargetBall"));
+	BlackboardAsset->UpdatePersistentKey<UBlackboardKeyType_Object>(FName("TargetCover"));
 
 	BlackboardComponent = CreateDefaultSubobject<UBlackboardComponent>(TEXT("BlackboardComponent"));
 }
@@ -44,20 +46,20 @@ void AEnemyAIController::BeginPlay()
 				BlackboardComponent->SetValueAsObject("TargetBall", nullptr);
 			}
 
-			return SearchForBall;
+			return SearchForCoverPoint;
 		}
 	);
 
 	SearchForBall = MakeShared<FAivState>(
 		[this]() 
 		{
-
 			AGameModeBase* GameMode = GetWorld()->GetAuthGameMode();
 			const ATagGameGameMode* AIGameMode = Cast<ATagGameGameMode>(GameMode);
 
 			const TArray<ABall*>& BallsList = AIGameMode->GetBalls();
 
 			float MaxDistance = INT_MAX;
+			ABall* BestBall = nullptr;
 
 			for (ABall* Ball : BallsList)
 			{
@@ -67,11 +69,13 @@ void AEnemyAIController::BeginPlay()
 
 					if (Distance < MaxDistance)
 					{
-						BlackboardComponent->SetValueAsObject("TargetBall", Ball);
+						BestBall = Ball;
 						MaxDistance = Distance;
 					}
 				}
 			}
+			
+			BlackboardComponent->SetValueAsObject("TargetBall", BestBall);
 		},
 		[this]()
 		{
@@ -137,6 +141,100 @@ void AEnemyAIController::BeginPlay()
 			return GoToPlayer;
 		}
 	);
+
+	SearchForCoverPoint = MakeShared<FAivState>(
+		[this]()
+		{
+			AGameModeBase* GameMode = GetWorld()->GetAuthGameMode();
+			const ATagGameGameMode* AIGameMode = Cast<ATagGameGameMode>(GameMode);
+
+			const TArray<ATargetPoint*>& RandomCoverPoints = AIGameMode->GetCoverPoints();
+
+			float MaxDistance = INT_MAX;
+			ATargetPoint* BestCover = nullptr;
+			for (ATargetPoint* Cover : RandomCoverPoints)
+			{
+				if (!Cover->GetAttachParentActor())
+				{
+					const float Distance = FVector::Distance(GetPawn()->GetActorLocation(), Cover->GetActorLocation());
+
+					if (Distance < MaxDistance)
+					{
+						BestCover = Cover;
+						MaxDistance = Distance;
+					}
+				}
+			}
+
+			BlackboardComponent->SetValueAsObject("TargetCover", BestCover);
+		},
+		[this]()
+		{
+			CurrentState->CallEnter();
+		},
+		[this](const float DeltaTime) -> TSharedPtr<FAivState> {
+
+			if (BlackboardComponent->GetValueAsObject("TargetCover") && !Cast<ATargetPoint>(BlackboardComponent->GetValueAsObject("TargetCover"))->GetAttachParentActor())
+			{
+				return GoToCover;
+			}
+			CurrentState->CallExit();
+			return SearchForCoverPoint;
+		});
+
+	GoToCover = MakeShared<FAivState>(
+		[this]() {
+			MoveToActor(Cast<ATargetPoint>(BlackboardComponent->GetValueAsObject("TargetCover")), 50.0f);
+		},
+		nullptr,
+		[this](const float DeltaTime) -> TSharedPtr<FAivState> {
+			EPathFollowingStatus::Type State = GetMoveStatus();
+
+			if (State == EPathFollowingStatus::Moving)
+			{
+				return nullptr;
+			}
+
+			if (Cast<ATargetPoint>(BlackboardComponent->GetValueAsObject("TargetCover"))->GetAttachParentActor())
+			{
+				BlackboardComponent->SetValueAsObject("TargetCover", nullptr);
+				return SearchForCoverPoint;
+			}
+			Cast<ATargetPoint>(BlackboardComponent->GetValueAsObject("TargetCover"))->AttachToActor(GetPawn(), FAttachmentTransformRules::KeepWorldTransform);
+
+			return GoToShootDistance;
+		}
+	);
+
+	GoToShootDistance = MakeShared<FAivState>(
+		[this]() {
+
+			AActor* Player = Cast<AActor>(BlackboardComponent->GetValueAsObject("Target"));
+			MoveToActor(Player, ShootDistance);
+		},
+		[this]()
+		{
+			CurrentState->CallEnter();
+		},
+		[this](const float DeltaTime) -> TSharedPtr<FAivState> {
+			EPathFollowingStatus::Type State = GetMoveStatus();
+
+			if (State == EPathFollowingStatus::Moving)
+			{
+				return nullptr;
+			}
+
+			float ActualDistance = FVector::Distance(GetPawn()->GetActorLocation(), GetWorld()->GetFirstPlayerController()->GetPawn()->GetActorLocation());
+
+			if (ActualDistance > ShootDistance)
+			{
+				CurrentState->CallExit();
+				return GoToShootDistance;
+			}
+
+			return ShootToPlayer;
+
+		});
 
 	CurrentState = SearchForBall;
 	CurrentState->CallEnter();

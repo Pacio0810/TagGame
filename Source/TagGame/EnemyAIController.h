@@ -85,6 +85,11 @@ protected:
 	TSharedPtr<FAivState> GoToBall;
 	TSharedPtr<FAivState> GrabBall;
 	TSharedPtr<FAivState> SearchForBall;
+	TSharedPtr<FAivState> SearchForCoverPoint;
+	TSharedPtr<FAivState> GoToCover;
+	TSharedPtr<FAivState> GoToShootDistance;
+	TSharedPtr<FAivState> ShootToPlayer;
+
 
 	void BeginPlay() override;
 	void Tick(float DeltaTime) override;
@@ -95,4 +100,7 @@ protected:
 	UBlackboardData* BlackboardAsset;
 
 	void OnPossess(APawn* InPawn) override;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float ShootDistance = 400.0f;
 };

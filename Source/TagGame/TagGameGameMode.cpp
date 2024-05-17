@@ -30,7 +30,10 @@ void ATagGameGameMode::ResetMatch()
 
 	for (TActorIterator<ATargetPoint> It(GetWorld()); It; ++It)
 	{
-		TargetPointArray.Add(*It);
+		if (!It->ActorHasTag("Cover"))
+		{
+			TargetPointArray.Add(*It);
+		}
 	}
 
 	GameBallArray.Empty();
@@ -52,11 +55,26 @@ void ATagGameGameMode::ResetMatch()
 		GameBallArray[i]->SetActorLocation(RandomTargetPoints[RandomIndex]->GetActorLocation());
 		RandomTargetPoints.RemoveAt(RandomIndex);
 	}
+
+	CoverPoints.Empty();
+
+	for (TActorIterator<ATargetPoint> It(GetWorld()); It; ++It)
+	{
+		if (It->ActorHasTag("Cover"))
+		{
+			CoverPoints.Add(*It);
+		}
+	}
 }
 
 const TArray<ABall*>& ATagGameGameMode::GetBalls() const
 {
 	return GameBallArray;
+}
+
+const TArray<ATargetPoint*>& ATagGameGameMode::GetCoverPoints() const
+{
+	return CoverPoints;
 }
 
 void ATagGameGameMode::Tick(const float DeltaTime)

@@ -20,11 +20,13 @@ public:
 
 protected:
 	TArray<ATargetPoint*> TargetPointArray;
+	TArray<ATargetPoint*> CoverPoints;
 	TArray<ABall*> GameBallArray;
 	void ResetMatch();
 
 public:
 	const TArray<ABall*>& GetBalls() const;
+	const TArray<ATargetPoint*>& GetCoverPoints() const;
 };
 
 
