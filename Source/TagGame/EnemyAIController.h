@@ -108,5 +108,5 @@ protected:
 	float ShootDistance = 400.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-	float BulletSpeed = 1200.0f;
+	float BulletSpeed = 1800.0f;
 };

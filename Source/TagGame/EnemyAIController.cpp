@@ -244,7 +244,7 @@ void AEnemyAIController::BeginPlay()
 			float ActualDistance = FVector::Distance(GetPawn()->GetActorLocation(), 
 													 GetWorld()->GetFirstPlayerController()->GetPawn()->GetActorLocation());
 
-			if (ActualDistance > ShootDistance)
+			if (ActualDistance >= ShootDistance + 25.f)
 			{
 				CurrentState->CallExit();
 				return GoToShootDistance;
@@ -261,6 +261,8 @@ void AEnemyAIController::BeginPlay()
 				BulletMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 				BulletMesh->AddImpulse(Force, NAME_None, true);
 			}
+
+			
 
 			return GoToCover;
 		}
