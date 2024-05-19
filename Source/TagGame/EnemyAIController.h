@@ -94,25 +94,24 @@ protected:
 	void BeginPlay() override;
 	void Tick(float DeltaTime) override;
 
-	//ABall* BestBall;
-
 	UBlackboardComponent* BlackboardComponent;
 	UBlackboardData* BlackboardAsset;
 
 	void OnPossess(APawn* InPawn) override;
 
-	UFUNCTION(BlueprintCallable, Category = "Spawn")
+public:
+	UFUNCTION(BlueprintCallable, Category = "Action|Shoot|Bullet")
 	AActor* SpawnBullet();
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Action|Shoot|Bullet")
 	float ShootDistance = 400.0f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Action|Shoot|Bullet")
 	float BulletSpeed = 1800.0f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Action|Cover|Distance")
 	float MinDistanceFromCover = 40.0f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Action|Shoot|Movement")
 	float RotationSpeed = 50.0f;
 };
