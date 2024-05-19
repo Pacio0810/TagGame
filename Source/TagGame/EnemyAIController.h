@@ -109,4 +109,10 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	float BulletSpeed = 1800.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float MinDistanceFromCover = 40.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	float RotationSpeed = 50.0f;
 };

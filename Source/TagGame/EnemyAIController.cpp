@@ -4,6 +4,7 @@
 #include "EnemyAIController.h"
 #include "Navigation/PathFollowingComponent.h"
 #include "BehaviorTree/Blackboard/BlackboardKeyType_Object.h"
+#include "Kismet/KismetMathLibrary.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "TagGameGameMode.h"
 
@@ -31,7 +32,7 @@ void AEnemyAIController::BeginPlay()
 		},
 		nullptr,
 		[this](const float DeltaTime) -> TSharedPtr<FAivState> {
-			EPathFollowingStatus::Type State = GetMoveStatus();
+			const EPathFollowingStatus::Type State = GetMoveStatus();
 
 			if (State == EPathFollowingStatus::Moving)
 			{
@@ -103,7 +104,7 @@ void AEnemyAIController::BeginPlay()
 		},
 		nullptr,
 		[this](const float DeltaTime) -> TSharedPtr<FAivState> {
-			EPathFollowingStatus::Type State = GetMoveStatus();
+			const EPathFollowingStatus::Type State = GetMoveStatus();
 
 			if (State == EPathFollowingStatus::Moving)
 			{
@@ -150,20 +151,22 @@ void AEnemyAIController::BeginPlay()
 	SearchForCoverPoint = MakeShared<FAivState>(
 		[this]()
 		{
-			AGameModeBase* GameMode = GetWorld()->GetAuthGameMode();
+			const AGameModeBase* GameMode = GetWorld()->GetAuthGameMode();
 			const ATagGameGameMode* AIGameMode = Cast<ATagGameGameMode>(GameMode);
 
 			const TArray<ATargetPoint*>& RandomCoverPoints = AIGameMode->GetCoverPoints();
 
 			float MaxDistance = INT_MAX;
 			ATargetPoint* BestCover = nullptr;
+
 			for (ATargetPoint* Cover : RandomCoverPoints)
 			{
 				if (!Cover->GetAttachParentActor())
 				{
-					const float Distance = FVector::Distance(GetPawn()->GetActorLocation(), Cover->GetActorLocation());
+					const float Distance = FMath::Abs(FVector::Distance(Cover->GetActorLocation(), GetPawn()->GetActorLocation()));
+					const float DistancePlayerToCover = FMath::Abs(FVector::Distance(Cover->GetActorLocation(), GetWorld()->GetFirstPlayerController()->GetPawn()->GetActorLocation()));
 
-					if (Distance < MaxDistance)
+					if (Distance > MinDistanceFromCover && Distance < MaxDistance && Distance > DistancePlayerToCover)
 					{
 						BestCover = Cover;
 						MaxDistance = Distance;
@@ -189,11 +192,11 @@ void AEnemyAIController::BeginPlay()
 
 	GoToCover = MakeShared<FAivState>(
 		[this]() {
-			MoveToActor(Cast<ATargetPoint>(BlackboardComponent->GetValueAsObject("TargetCover")), 50.0f);
+			MoveToActor(Cast<ATargetPoint>(BlackboardComponent->GetValueAsObject("TargetCover")), MinDistanceFromCover - 10.0f);
 		},
 		nullptr,
 		[this](const float DeltaTime) -> TSharedPtr<FAivState> {
-			EPathFollowingStatus::Type State = GetMoveStatus();
+			const EPathFollowingStatus::Type State = GetMoveStatus();
 
 			if (State == EPathFollowingStatus::Moving)
 			{
@@ -207,7 +210,6 @@ void AEnemyAIController::BeginPlay()
 			}
 
 			Cast<ATargetPoint>(BlackboardComponent->GetValueAsObject("TargetCover"))->AttachToActor(GetPawn(), FAttachmentTransformRules::KeepWorldTransform);
-
 			return GoToShootDistance;
 		}
 	);
@@ -223,7 +225,7 @@ void AEnemyAIController::BeginPlay()
 			CurrentState->CallEnter();
 		},
 		[this](const float DeltaTime) -> TSharedPtr<FAivState> {
-			EPathFollowingStatus::Type State = GetMoveStatus();
+			const EPathFollowingStatus::Type State = GetMoveStatus();
 
 			if (State == EPathFollowingStatus::Moving)
 			{
@@ -241,8 +243,14 @@ void AEnemyAIController::BeginPlay()
 		nullptr,
 		[this](const float DeltaTime) -> TSharedPtr<FAivState> {
 			
-			float ActualDistance = FVector::Distance(GetPawn()->GetActorLocation(), 
-													 GetWorld()->GetFirstPlayerController()->GetPawn()->GetActorLocation());
+			const AActor* Player = Cast<AActor>(BlackboardComponent->GetValueAsObject("Target"));
+
+			if (!Player)
+			{
+				return nullptr;
+			}
+
+			const float ActualDistance = FVector::Distance(GetPawn()->GetActorLocation(), Player->GetActorLocation());
 
 			if (ActualDistance >= ShootDistance + 25.f)
 			{
@@ -250,10 +258,17 @@ void AEnemyAIController::BeginPlay()
 				return GoToShootDistance;
 			}
 
-			AActor* Bullet = SpawnBullet();
+			const FRotator LookAtRotation = UKismetMathLibrary::FindLookAtRotation(GetPawn()->GetActorLocation(), Player->GetActorLocation());
+
+			const FRotator CurrentRotation = GetPawn()->GetActorRotation();
+			const FRotator NewRotation = FMath::RInterpTo(CurrentRotation, LookAtRotation, DeltaTime, RotationSpeed);
+
+			GetPawn()->SetActorRotation(NewRotation);
+
+			const AActor* Bullet = SpawnBullet();
 			UStaticMeshComponent* BulletMesh = Bullet->GetComponentByClass<UStaticMeshComponent>();
 
-			FVector Force = GetPawn()->GetActorForwardVector() * BulletSpeed;
+			const FVector Force = GetPawn()->GetActorForwardVector() * BulletSpeed;
 
 			if (BulletMesh)
 			{
@@ -262,9 +277,7 @@ void AEnemyAIController::BeginPlay()
 				BulletMesh->AddImpulse(Force, NAME_None, true);
 			}
 
-			
-
-			return GoToCover;
+			return SearchForCoverPoint;
 		}
 	);
 
@@ -291,11 +304,12 @@ void AEnemyAIController::OnPossess(APawn* InPawn)
 
 AActor* AEnemyAIController::SpawnBullet()
 {
-	UBlueprint* BulletToSpawn = LoadObject<UBlueprint>(nullptr, TEXT("/Game/BP_Ball.BP_Ball"));
+	const UBlueprint* BulletToSpawn = LoadObject<UBlueprint>(nullptr, TEXT("/Game/BP_Ball.BP_Ball"));
 
 	UClass* BulletClass = BulletToSpawn->GeneratedClass;
 
-	FVector SpawnPoint = GetPawn()->GetActorLocation() + (GetPawn()->GetActorForwardVector() + 50.0f);
+	const FVector SpawnPoint = GetPawn()->GetActorLocation() + (GetPawn()->GetActorForwardVector() + 50.0f);
+
 	if (BulletClass->IsChildOf<AActor>())
 	{
 		return GetWorld()->SpawnActor<AActor>(BulletClass, SpawnPoint, FRotator::ZeroRotator);
